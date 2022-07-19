@@ -478,14 +478,15 @@ function App() {
 
               <div className="form-control w-full max-w-xs">
                 <label className="label font-bold">
-                  <span className="label-text">Berat/pot(Gram)</span>
+                  <span className="label-text">Berat/pot (Gram)</span>
                 </label>
                 <textarea
                   value={item.pot}
                   onChange={onChange(index)}
                   name="pot"
                   className="textarea textarea-bordered"
-                  placeholder="Pot"
+                  placeholder={`contoh:\n12\n12`}
+                  rows={3}
                 ></textarea>
               </div>
               <div className="form-control w-full max-w-xs">
@@ -497,7 +498,8 @@ function App() {
                   onChange={onChange(index)}
                   name="berat"
                   className="textarea textarea-bordered"
-                  placeholder="berat"
+                  placeholder={`contoh:\n0,2\n12`}
+                  rows={3}
                 ></textarea>
               </div>
 
@@ -510,7 +512,8 @@ function App() {
                   onChange={onChange(index)}
                   name="paraf"
                   className="textarea textarea-bordered"
-                  placeholder="contoh: E=2"
+                  placeholder={`contoh:\nE=2\nB=5`}
+                  rows={3}
                 ></textarea>
               </div>
 
