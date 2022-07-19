@@ -12,7 +12,6 @@ import {
   VerticalAlign,
   TextRun,
   HeightRule,
-  HeadingLevel,
 } from "docx";
 import { saveAs } from "file-saver";
 import moment from "moment";
