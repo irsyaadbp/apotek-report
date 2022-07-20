@@ -12,6 +12,8 @@ import {
   VerticalAlign,
   TextRun,
   HeightRule,
+  UnderlineType,
+  convertMillimetersToTwip,
 } from "docx";
 import { saveAs } from "file-saver";
 import moment from "moment";
@@ -19,25 +21,23 @@ import DatePicker from "react-datepicker";
 
 function App() {
   const [date, setDate] = useState(new Date());
-  const [title, setTitle] = useState("ADMINISTRASI PERCAIKAN CREAM");
+  const [title, setTitle] = useState("ADMINISTRASI PERACIKAN CREAM");
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState([
-    {
-      kodeCream: "",
-      formula: "",
-      pot: "",
-      berat: "",
-      paraf: "",
-      jumlah: null,
-    },
-  ]);
+  const [data, setData] = useState({
+    kodeCream: "",
+    formula: "",
+    pot: "",
+    paraf: "",
+    jumlah: null,
+  });
+  const [items, setItems] = useState([]);
 
-  const onChange = (index) => (e) => {
+  const onChange = (e) => {
     const { value, name } = e.target;
 
     setData((old) => {
-      const newData = old.slice();
-      newData[index][name] = ["kodeCream", "paraf"].includes(name)
+      const newData = { ...old };
+      newData[name] = ["kodeCream", "formula", "paraf"].includes(name)
         ? value.toUpperCase()
         : value;
 
@@ -45,63 +45,95 @@ function App() {
     });
   };
 
-  const onAddItem = () => {
-    setData((old) => {
-      const newData = old.slice();
-      newData.push({
-        kodeCream: "",
-        formula: "",
-        takaran: "",
-        paraf: "",
-        jumlah: null,
-      });
+  const onDeleteItem = (index) => {
+    setItems((old) => {
+      const newData = JSON.parse(JSON.stringify(old));
+      newData.splice(index, 1);
       return newData;
     });
   };
 
-  const onDeleteItem = (index) => {
-    setData((old) => {
-      const newData = old.slice();
-      newData.splice(index, 1);
+  const onAddItem = () => {
+    const containerParaf = data.paraf.split("\n");
+    const parafs = [];
+    if (containerParaf.length) {
+      containerParaf.forEach((dataParaf) => {
+        const userParaf = dataParaf.split("=");
+        let totalParaf = 1;
+        if (userParaf[1]) {
+          totalParaf = userParaf[1];
+        }
+
+        for (let index = 0; index < totalParaf; index++) {
+          parafs.push({ name: userParaf[0], total: totalParaf });
+        }
+      });
+    }
+    const dataItem = Array.from({ length: parafs.length }, (_, i) => ({
+      ...data,
+      formula: data.formula.split("\n"),
+      pot: data.pot.split("\n").map((item) => +item.split(",").join(".")),
+      potTotal: data.pot.split("\n").map((item) => +item.split(",").join(".")),
+      paraf: parafs?.[i]?.name || parafs?.[0]?.name,
+      jumlah: 1,
+    })).sort((a, b) => (a.paraf > b.paraf ? -1 : 1));
+
+    setItems((old) => [...old, ...dataItem]);
+  };
+
+  const onChangeJumlah = (index) => (e) => {
+    const { value } = e.target;
+    setItems((old) => {
+      const newData = JSON.parse(JSON.stringify(old));
+      newData[index] = {
+        ...newData[index],
+        jumlah: +value,
+        potTotal: newData[index].potTotal.map((__, index) => {
+          const pot = newData?.[index]?.pot?.[index];
+          const isInt = pot % 1 === 0;
+
+          return isInt ? +value * +pot : (+value * +pot).toPrecision(3);
+        }),
+      };
+
+      return newData;
+    });
+  };
+
+  const onChangeParaf = (index) => (e) => {
+    const { value, name } = e.target;
+    setItems((old) => {
+      const newData = JSON.parse(JSON.stringify(old));
+      newData[index] = {
+        ...newData[index],
+        [name]: value.toUpperCase(),
+      };
+
+      return newData;
+    });
+  };
+
+  const onDuplicateData = (index) => {
+    const newIndex = index + 1;
+    setItems((old) => {
+      const newData = JSON.parse(JSON.stringify(old));
+      newData.splice(newIndex, 0, newData[index]);
       return newData;
     });
   };
 
   const onGenerateDoc = () => {
     setLoading(true);
-    const items = data.reduce((result, item) => {
-      const containerParaf = item.paraf.split("\n");
-      const parafs = [];
-      if (containerParaf.length) {
-        containerParaf.forEach((dataParaf) => {
-          const userParaf = dataParaf.split("=");
-          let totalParaf = 1;
-          if (userParaf[1]) {
-            totalParaf = userParaf[1];
-          }
-
-          for (let index = 0; index < totalParaf; index++) {
-            parafs.push({ name: userParaf[0], total: totalParaf });
-          }
-        });
-      }
-      const data = Array.from({ length: item.jumlah }, (_, i) => ({
-        ...item,
-        formula: item.formula.split("\n"),
-        pot: item.pot.split("\n"),
-        berat: item.berat.split("\n"),
-        paraf:
-          parafs?.[i]?.name ||
-          parafs?.find((p) => p.total === 1)?.name ||
-          parafs?.[0]?.name,
-        jumlah: undefined,
-      })).sort((a, b) => (a.paraf > b.paraf ? -1 : 1));
-      result.push(...data);
-      return result;
-    }, []);
 
     const table = new Table({
-      columnWidths: [600, 1200, 1200, 1200, 1200, 1200, 1200],
+      columnWidths: [
+        convertMillimetersToTwip(10),
+        convertMillimetersToTwip(26.334),
+        convertMillimetersToTwip(26.334),
+        convertMillimetersToTwip(31),
+        convertMillimetersToTwip(26.334),
+        convertMillimetersToTwip(26.334),
+      ],
       break: 4,
       rows: [
         new TableRow({
@@ -113,6 +145,7 @@ function App() {
                     new TextRun({
                       text: "No.",
                       bold: true,
+                      font: "Calibri",
                     }),
                   ],
                   alignment: AlignmentType.CENTER,
@@ -127,20 +160,7 @@ function App() {
                     new TextRun({
                       text: "Tanggal",
                       bold: true,
-                    }),
-                  ],
-                  alignment: AlignmentType.CENTER,
-                }),
-              ],
-              verticalAlign: VerticalAlign.CENTER,
-            }),
-            new TableCell({
-              children: [
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: "No Resep",
-                      bold: true,
+                      font: "Calibri",
                     }),
                   ],
                   alignment: AlignmentType.CENTER,
@@ -155,6 +175,7 @@ function App() {
                     new TextRun({
                       text: "Kode Cream",
                       bold: true,
+                      font: "Calibri",
                     }),
                   ],
                   alignment: AlignmentType.CENTER,
@@ -169,6 +190,7 @@ function App() {
                     new TextRun({
                       text: "Formula",
                       bold: true,
+                      font: "Calibri",
                     }),
                   ],
                   alignment: AlignmentType.CENTER,
@@ -183,20 +205,7 @@ function App() {
                     new TextRun({
                       text: "Berat/pot (Garam)",
                       bold: true,
-                    }),
-                  ],
-                  alignment: AlignmentType.CENTER,
-                }),
-              ],
-              verticalAlign: VerticalAlign.CENTER,
-            }),
-            new TableCell({
-              children: [
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: "Berat yang ditimbang",
-                      bold: true,
+                      font: "Calibri",
                     }),
                   ],
                   alignment: AlignmentType.CENTER,
@@ -211,6 +220,7 @@ function App() {
                     new TextRun({
                       text: "Paraf",
                       bold: true,
+                      font: "Calibri",
                     }),
                   ],
                   alignment: AlignmentType.CENTER,
@@ -232,6 +242,7 @@ function App() {
                       children: [
                         new TextRun({
                           text: `${index + 1}`,
+                          font: "Calibri",
                         }),
                       ],
                       alignment: AlignmentType.CENTER,
@@ -245,9 +256,10 @@ function App() {
                       children: [
                         new TextRun({
                           text: moment(date).format("DD/MM/yyyy"),
+                          font: "Calibri",
                         }),
                       ],
-                      alignment: AlignmentType.CENTER,
+                      alignment: AlignmentType.RIGHT,
                     }),
                   ],
                   verticalAlign: VerticalAlign.CENTER,
@@ -257,23 +269,13 @@ function App() {
                     new Paragraph({
                       children: [
                         new TextRun({
-                          text: "",
+                          text: `${item.kodeCream}${
+                            item.jumlah > 1 ? ` (${item.jumlah})` : ""
+                          }`,
+                          font: "Calibri",
                         }),
                       ],
-                      alignment: AlignmentType.CENTER,
-                    }),
-                  ],
-                  verticalAlign: VerticalAlign.CENTER,
-                }),
-                new TableCell({
-                  children: [
-                    new Paragraph({
-                      children: [
-                        new TextRun({
-                          text: item.kodeCream,
-                        }),
-                      ],
-                      alignment: AlignmentType.CENTER,
+                      alignment: AlignmentType.LEFT,
                     }),
                   ],
                   verticalAlign: VerticalAlign.CENTER,
@@ -285,34 +287,22 @@ function App() {
                         children: [
                           new TextRun({
                             text: formula,
+                            font: "Calibri",
                           }),
                         ],
-                        alignment: AlignmentType.CENTER,
+                        alignment: AlignmentType.LEFT,
                       })
                   ),
                   verticalAlign: VerticalAlign.CENTER,
                 }),
                 new TableCell({
-                  children: item.pot.map(
+                  children: item.potTotal.map(
                     (pot) =>
                       new Paragraph({
                         children: [
                           new TextRun({
-                            text: pot,
-                          }),
-                        ],
-                        alignment: AlignmentType.CENTER,
-                      })
-                  ),
-                  verticalAlign: VerticalAlign.CENTER,
-                }),
-                new TableCell({
-                  children: item.berat.map(
-                    (berat) =>
-                      new Paragraph({
-                        children: [
-                          new TextRun({
-                            text: berat,
+                            text: String(pot).split(".").join(","),
+                            font: "Calibri",
                           }),
                         ],
                         alignment: AlignmentType.CENTER,
@@ -326,6 +316,7 @@ function App() {
                       children: [
                         new TextRun({
                           text: item.paraf,
+                          font: "Calibri",
                         }),
                       ],
                       alignment: AlignmentType.CENTER,
@@ -338,8 +329,9 @@ function App() {
             })
         ),
       ],
+      alignment: AlignmentType.CENTER,
       width: {
-        size: 8000,
+        size: convertMillimetersToTwip(146, 3),
         type: WidthType.DXA,
       },
     });
@@ -353,6 +345,10 @@ function App() {
                   text: title,
                   bold: true,
                   size: 28,
+                  underline: {
+                    type: UnderlineType.DASH,
+                    color: "000000",
+                  },
                 }),
               ],
               alignment: AlignmentType.CENTER,
@@ -369,11 +365,13 @@ function App() {
       ],
     });
 
-    saveDocumentToFile(doc, `${title}-${moment(date).format("DDMMYYYY")}.docx`);
+    saveDocumentToFile(
+      doc,
+      `${title} TGL ${moment(date).format("DDMMYYYY")}.docx`
+    );
   };
 
   function saveDocumentToFile(doc, fileName) {
-    // const packer = new Packer();
     const mimeType =
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     Packer.toBlob(doc)
@@ -414,134 +412,135 @@ function App() {
             popperClassName="react-datepicker-right"
           />
         </div>
+
         <div className="text-right" style={{ flex: 1 }}>
-          <button className="btn btn-success my-2 lg:my-0" onClick={onAddItem}>
+          <label className="btn btn-success my-2 lg:my-0" htmlFor="my-modal-6">
             Tambah Item
-          </button>
+          </label>
         </div>
       </div>
 
-      {data.map((item, index) => (
-        <div key={index} className="card bg-base-100 shadow-md mt-4 p-0">
-          <div className="card-body">
-            <div className="card-actions justify-end">
-              <div className="tooltip tooltip-error" data-tip="Hapus Item">
-                <button
-                  className="btn btn-square btn-error btn-sm"
-                  onClick={() => onDeleteItem(index)}
-                  disabled={index === 0 && data.length === 1}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-              <div className="form-control w-full max-w-xs">
-                <label className="label font-bold">
-                  <span className="label-text">Kode Cream</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Type here"
-                  value={item.kodeCream}
-                  onChange={onChange(index)}
-                  name="kodeCream"
-                  className="input input-bordered w-full max-w-xs"
-                />
-              </div>
-
-              <div className="form-control w-full max-w-xs">
-                <label className="label font-bold">
-                  <span className="label-text">Formula</span>
-                </label>
-                <textarea
-                  value={item.formula}
-                  onChange={onChange(index)}
-                  name="formula"
-                  className="textarea textarea-bordered"
-                  placeholder="Formula"
-                ></textarea>
-              </div>
-
-              <div className="form-control w-full max-w-xs">
-                <label className="label font-bold">
-                  <span className="label-text">Berat/pot (Gram)</span>
-                </label>
-                <textarea
-                  value={item.pot}
-                  onChange={onChange(index)}
-                  name="pot"
-                  className="textarea textarea-bordered"
-                  placeholder={`contoh:\n12\n12`}
-                  rows={3}
-                ></textarea>
-              </div>
-              <div className="form-control w-full max-w-xs">
-                <label className="label font-bold">
-                  <span className="label-text">Berat yang ditimbang</span>
-                </label>
-                <textarea
-                  value={item.berat}
-                  onChange={onChange(index)}
-                  name="berat"
-                  className="textarea textarea-bordered"
-                  placeholder={`contoh:\n0,2\n12`}
-                  rows={3}
-                ></textarea>
-              </div>
-
-              <div className="form-control w-full max-w-xs">
-                <label className="label font-bold">
-                  <span className="label-text">Paraf</span>
-                </label>
-                <textarea
-                  value={item.paraf}
-                  onChange={onChange(index)}
-                  name="paraf"
-                  className="textarea textarea-bordered"
-                  placeholder={`contoh:\nE=2\nB=5`}
-                  rows={3}
-                ></textarea>
-              </div>
-
-              <div className="form-control w-full max-w-xs">
-                <label className="label font-bold">
-                  <span className="label-text">Jumlah Item</span>
-                </label>
-                <input
-                  value={item.jumlah}
-                  onChange={onChange(index)}
-                  name="jumlah"
-                  type="number"
-                  placeholder="contoh: 5"
-                  className="input input-bordered w-full max-w-xs"
-                />
-              </div>
-            </div>
+      <div className="card bg-base-100 shadow-md mt-4 p-0">
+        <div className="card-body">
+          <div className="overflow-x-auto mt-4">
+            <table className="table table-compact w-full">
+              <thead>
+                <tr>
+                  <th>No.</th>
+                  <th>Tanggal</th>
+                  <th>Kode Cream</th>
+                  <th>Formula</th>
+                  <th>Berat/pot (Gram)</th>
+                  <th>Paraf</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.length ? (
+                  items.map((item, index) => (
+                    <tr key={`item-${item.kodeCream}-${index}`}>
+                      <td>{index + 1}</td>
+                      <td>{moment(date).format("DD/MM/YYYY")}</td>
+                      <td>
+                        {item.kodeCream}{" "}
+                        <input
+                          value={item.jumlah}
+                          onChange={onChangeJumlah(index)}
+                          type="number"
+                          placeholder="Type here"
+                          name="jumlah"
+                          className="input input-bordered input-sm ml-1 w-16"
+                        />
+                      </td>
+                      <td>
+                        {item.formula.map((formula, idx) => (
+                          <p
+                            key={`formula-${formula}-${idx}-${index}`}
+                            className="mb-0"
+                          >
+                            {formula}
+                          </p>
+                        ))}
+                      </td>
+                      <td>
+                        {item.potTotal.map((pot, idx) => (
+                          <p
+                            key={`formula-${pot}-${idx}-${index}`}
+                            className="mb-0"
+                          >
+                            {String(pot).split(".").join(",")}
+                          </p>
+                        ))}
+                      </td>
+                      <td>
+                        <input
+                          value={item.paraf}
+                          onChange={onChangeParaf(index)}
+                          type="text"
+                          placeholder="Type here"
+                          name="paraf"
+                          className="input input-bordered w-20"
+                        />
+                      </td>
+                      <td>
+                        <div className="flex align-center">
+                          <div
+                            className="tooltip tooltip-success"
+                            data-tip="Duplicate Data"
+                          >
+                            <button
+                              className="btn btn-square btn-outline btn-sm btn-success mr-2"
+                              onClick={() => onDuplicateData(index)}
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                              >
+                                <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" />
+                                <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z" />
+                              </svg>
+                            </button>
+                          </div>
+                          <div
+                            className="tooltip tooltip-error"
+                            data-tip="Hapus Data"
+                          >
+                            <button
+                              className="btn btn-square btn-error btn-outline btn-sm"
+                              onClick={() => onDeleteItem(index)}
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr key={`item-not-found`}>
+                    <td colSpan={7} className="p-6">
+                      <h3 className="text-center font-bold">No Item Added</h3>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
-      ))}
-
-      {data.length >= 3 && (
-        <div className="flex justify-end mt-4">
-          <button className="btn btn-success" onClick={onAddItem}>
-            Tambah Item
-          </button>
-        </div>
-      )}
+      </div>
 
       <div className="btm-nav bg-success p-12">
         <button
@@ -550,6 +549,78 @@ function App() {
         >
           {loading ? "Generating..." : "Generate Document"}
         </button>
+      </div>
+
+      <input type="checkbox" id="my-modal-6" className="modal-toggle" />
+      <div className="modal modal-bottom sm:modal-middle">
+        <div className="modal-box">
+          <h3 className="font-bold text-lg">Add Item</h3>
+          <div className="grid grid-cols-1 gap-4">
+            <div className="form-control w-full">
+              <label className="label font-bold">
+                <span className="label-text">Kode Cream</span>
+              </label>
+              <input
+                value={data.kodeCream}
+                onChange={onChange}
+                type="text"
+                placeholder="Type here"
+                name="kodeCream"
+                className="input input-bordered w-full"
+              />
+            </div>
+
+            <div className="form-control w-full">
+              <label className="label font-bold">
+                <span className="label-text">Formula</span>
+              </label>
+              <textarea
+                value={data.formula}
+                onChange={onChange}
+                name="formula"
+                className="textarea textarea-bordered"
+                placeholder="Formula"
+                rows={3}
+              ></textarea>
+            </div>
+
+            <div className="form-control w-full">
+              <label className="label font-bold">
+                <span className="label-text">Berat/pot (Gram)</span>
+              </label>
+              <textarea
+                value={data.pot}
+                onChange={onChange}
+                name="pot"
+                className="textarea textarea-bordered"
+                placeholder={`contoh:\n12\n12`}
+                rows={3}
+              ></textarea>
+            </div>
+
+            <div className="form-control w-full">
+              <label className="label font-bold">
+                <span className="label-text">Paraf</span>
+              </label>
+              <textarea
+                value={data.paraf}
+                onChange={onChange}
+                name="paraf"
+                className="textarea textarea-bordered"
+                placeholder={`contoh:\nE=2\nB=5`}
+                rows={3}
+              ></textarea>
+            </div>
+          </div>
+          <div className="modal-action">
+            <label htmlFor="my-modal-6" className="btn btn-ghost">
+              Cancel
+            </label>
+            <label htmlFor="my-modal-6" className="btn" onClick={onAddItem}>
+              Save
+            </label>
+          </div>
+        </div>
       </div>
     </div>
   );
