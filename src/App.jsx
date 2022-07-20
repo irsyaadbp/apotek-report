@@ -351,10 +351,6 @@ function App() {
                   text: title,
                   bold: true,
                   size: 28,
-                  underline: {
-                    type: UnderlineType.DASH,
-                    color: "000000",
-                  },
                 }),
               ],
               alignment: AlignmentType.CENTER,
