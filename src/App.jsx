@@ -79,6 +79,11 @@ function App() {
     })).sort((a, b) => (a.paraf > b.paraf ? -1 : 1));
 
     setItems((old) => [...old, ...dataItem]);
+    setData({ kodeCream: "", formula: "", pot: "", paraf: "", jumlah: null });
+  };
+
+  const onCancelAddItem = () => {
+    setData({ kodeCream: "", formula: "", pot: "", paraf: "", jumlah: null });
   };
 
   const onChangeJumlah = (index) => (e) => {
@@ -90,9 +95,10 @@ function App() {
         jumlah: +value,
         potTotal: newData[index].potTotal.map((__, index) => {
           const pot = newData?.[index]?.pot?.[index];
-          const isInt = pot % 1 === 0;
+          const calculate = +value * +pot;
+          const isInt = calculate % 1 === 0;
 
-          return isInt ? +value * +pot : (+value * +pot).toPrecision(3);
+          return isInt ? calculate : calculate.toPrecision(3);
         }),
       };
 
@@ -384,9 +390,22 @@ function App() {
 
   return (
     <div className="container pb-56">
-      <div className="hero">
-        <div className="hero-content text-center">
-          <h1 className="text-6xl font-bold">Apotek Report</h1>
+      <div class="hero">
+        <div class="hero-content text-center">
+          <div class="max-w-md">
+            <h1 class="text-6xl font-bold">Apotek Report</h1>
+            <p class="py-6 font-light">
+              Created by{" "}
+              <a
+                href="http://instagram.com/irsyaadbp"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="link link-primary font-bold"
+              >
+                Irsyaad Budi
+              </a>
+            </p>
+          </div>
         </div>
       </div>
       <div className="flex flex-col lg:flex-row gap-4 mt-4">
@@ -396,9 +415,9 @@ function App() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           name="title"
-          className="input input-bordered w-full max-w-md"
+          className="input input-bordered w-full lg:max-w-md"
         />
-        <div className="max-w-xs relative">
+        <div className="lg:max-w-xs relative">
           <DatePicker
             selected={date}
             onChange={(date) => {
@@ -411,12 +430,6 @@ function App() {
             previousMonthButtonLabel="<"
             popperClassName="react-datepicker-right"
           />
-        </div>
-
-        <div className="text-right" style={{ flex: 1 }}>
-          <label className="btn btn-success my-2 lg:my-0" htmlFor="my-modal-6">
-            Tambah Item
-          </label>
         </div>
       </div>
 
@@ -439,7 +452,7 @@ function App() {
                 {items.length ? (
                   items.map((item, index) => (
                     <tr key={`item-${item.kodeCream}-${index}`}>
-                      <td>{index + 1}</td>
+                      <th>{index + 1}</th>
                       <td>{moment(date).format("DD/MM/YYYY")}</td>
                       <td>
                         {item.kodeCream}{" "}
@@ -541,19 +554,57 @@ function App() {
           </div>
         </div>
       </div>
+      <div className="fixed right-6 bottom-28 lg:bottom-32 lg:right-10">
+        <div
+          className="tooltip tooltip-success tooltip-left"
+          data-tip="Add Item"
+        >
+          <label
+            className="btn btn-lg btn-circle btn-success"
+            htmlFor="modal-add-item"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+              <path
+                fillRule="evenodd"
+                d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </label>
+        </div>
+      </div>
 
-      <div className="btm-nav bg-success p-12">
+      <div className="btm-nav bg-success p-12 z-20">
         <button
           className={`btn ${loading ? "loading" : ""}`}
           onClick={onGenerateDoc}
+          disabled={!items.length}
         >
-          {loading ? "Generating..." : "Generate Document"}
+          {!items.length
+            ? "Mohon masukan item terlebih dahulu"
+            : loading
+            ? "Generating..."
+            : "Generate Document"}
         </button>
       </div>
 
-      <input type="checkbox" id="my-modal-6" className="modal-toggle" />
+      {/* MODAL ADD ITEM */}
+      <input type="checkbox" id="modal-add-item" className="modal-toggle" />
       <div className="modal modal-bottom sm:modal-middle">
-        <div className="modal-box">
+        <div className="modal-box relative">
+          <label
+            htmlFor="modal-add-item"
+            className="btn btn-sm btn-circle absolute right-2 top-2"
+            onClick={onCancelAddItem}
+          >
+            ✕
+          </label>
           <h3 className="font-bold text-lg">Add Item</h3>
           <div className="grid grid-cols-1 gap-4">
             <div className="form-control w-full">
@@ -613,10 +664,14 @@ function App() {
             </div>
           </div>
           <div className="modal-action">
-            <label htmlFor="my-modal-6" className="btn btn-ghost">
+            <label
+              htmlFor="modal-add-item"
+              className="btn btn-ghost"
+              onClick={onCancelAddItem}
+            >
               Cancel
             </label>
-            <label htmlFor="my-modal-6" className="btn" onClick={onAddItem}>
+            <label htmlFor="modal-add-item" className="btn" onClick={onAddItem}>
               Save
             </label>
           </div>
